@@ -1,0 +1,17 @@
+name: build-pkg
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: openorbisofficial/toolchain:latest
+    steps:
+      - name: Build hello_world sample
+        run: |
+          git clone --depth 1 https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git /tmp/tc
+          cd /tmp/tc/samples/hello_world
+          make
+          mkdir -p /tmp/out && find /tmp/tc/samples/hello_world -name "*.pkg" -exec cp {} /tmp/out/ \;
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ps4-pkg
+          path: /tmp/out/
