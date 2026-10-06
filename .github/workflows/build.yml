@@ -3,7 +3,9 @@ on: [push, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: openorbisofficial/toolchain:latest
+    container:
+      image: openorbisofficial/toolchain:latest
+      options: --user root
     steps:
       - name: Install git
         run: apt-get update && apt-get install -y git
