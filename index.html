@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mini Stremio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{margin:0;background:#12101c;color:#fff;font-family:Arial,sans-serif;font-size:22px}
+header{padding:16px 24px;background:#1d1a2f}
+h1{margin:0 0 10px;font-size:28px;color:#a99bff}
+button,input{font-size:22px;padding:12px 20px;margin:4px;border-radius:8px;border:2px solid #3b3566;background:#2a2547;color:#fff}
+button:focus,input:focus,.card:focus{outline:4px solid #fff}
+input{width:60%}
+#main{padding:20px 24px}
+.card{display:inline-block;width:200px;margin:8px;vertical-align:top;cursor:pointer;background:#1d1a2f;border-radius:8px;overflow:hidden}
+.card img{width:200px;height:300px;display:block;background:#333}
+.card div{padding:6px;font-size:16px}
+#msg{color:#ffd166;padding:8px 24px}
+#player{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9}
+#player video{width:100%;height:92%}
+.small{font-size:17px;color:#bbb}
+</style>
+</head>
+<body>
+<header>
+<h1>Mini Stremio</h1>
+<button onclick="loadHome()">Home</button>
+<input id="q" placeholder="Search movies">
+<button onclick="search()">Search</button>
+<button onclick="showSettings()">Settings</button>
+</header>
+<div id="msg"></div>
+<div id="main"></div>
+<div id="player"><button onclick="closePlayer()">Close</button><video id="v" controls autoplay></video></div>
+
+<script>
+var CINE='https://v3-cinemeta.strem.io';
+var SAMPLE='https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+var main=document.getElementById('main'),msg=document.getElementById('msg'),vid=document.getElementById('v');
+
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+function say(t){msg.textContent=t||''}
+function esc(s){return String(s||'').replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function get(url,ok,fail){
+  var x=new XMLHttpRequest();
+  x.open('GET',url,true);
+  x.timeout=15000;
+  x.onload=function(){try{ok(JSON.parse(x.responseText))}catch(e){fail&&fail('Bad response')}};
+  x.onerror=x.ontimeout=function(){fail&&fail('Network/CORS error')};
+  x.send();
+}
+function addons(){var a=store('addons');return a?a.split('\n').filter(Boolean):[]}
+function base(u){return u.replace(/\/manifest\.json.*$/,'').replace(/\/$/,'')}
+
+function grid(metas){
+  var h='';
+  for(var i=0;i<metas.length;i++){
+    var m=metas[i];
+    h+='<div class="card" tabindex="0" onclick="openMeta('+i+')"><img src="'+esc(m.poster)+'"><div>'+esc(m.name)+'</div></div>';
+  }
+  main.innerHTML=h||'No results';
+  window.metas=metas;
+}
+function loadHome(){
+  say('Loading...');
+  get(CINE+'/catalog/movie/top.json',function(d){say('');grid(d.metas||[])},function(e){say('Error: '+e)});
+}
+function search(){
+  var q=document.getElementById('q').value;if(!q)return;
+  say('Searching...');
+  get(CINE+'/catalog/movie/top/search='+encodeURIComponent(q)+'.json',function(d){say('');grid(d.metas||[])},function(e){say('Error: '+e)});
+}
+function openMeta(i){
+  var m=window.metas[i];
+  main.innerHTML='<h2>'+esc(m.name)+' <span class="small">'+esc(m.releaseInfo||m.year)+'</span></h2><p class="small">'+esc(m.description)+'</p>'
+   +'<button onclick="findStreams(\''+esc(m.id)+'\')">Find streams</button><button onclick="loadHome()">Back</button><div id="st"></div>';
+  say('');
+}
+function findStreams(id){
+  var list=addons(),st=document.getElementById('st');
+  if(!list.length){st.innerHTML='<p>No stream addon added. Go to Settings.</p>';return}
+  st.innerHTML='Searching...';
+  var pending=list.length,html='',torrents=0,n=0;
+  window.urls=[];
+  list.forEach(function(a){
+    get(base(a)+'/stream/movie/'+id+'.json',function(d){
+      (d.streams||[]).forEach(function(s){
+        if(s.url){window.urls.push(s.url);html+='<button onclick="play('+(window.urls.length-1)+')">'+esc((s.name||'')+' '+(s.title||s.description||'Play')).substring(0,70)+'</button><br>';n++}
+        else torrents++;
+      });done()
+    },function(){done()});
+  });
+  function done(){
+    if(--pending)return;
+    st.innerHTML=(html||'<p>No direct streams found.</p>')+(torrents?'<p class="small">'+torrents+' torrent stream(s) skipped (not supported).</p>':'');
+  }
+}
+function play(i){playUrl(window.urls[i])}
+function playUrl(u){
+  document.getElementById('player').style.display='block';
+  vid.onerror=function(){say('Cannot play this video on this browser.')};
+  vid.src=u;vid.play&&vid.play();
+}
+function closePlayer(){vid.pause();vid.removeAttribute('src');document.getElementById('player').style.display='none'}
+
+function showSettings(){
+  main.innerHTML='<h2>Settings</h2><p>Stream addon URL (direct-link addons only):</p>'
+   +'<input id="au" placeholder="https://.../manifest.json"><button onclick="addAddon()">Add</button>'
+   +'<div id="al"></div><hr><button onclick="playUrl(SAMPLE)">Test video playback</button>';
+  listAddons();
+}
+function listAddons(){
+  var l=addons(),h='<p class="small">Saved addons:</p>';
+  l.forEach(function(a,i){h+='<div>'+esc(a)+' <button onclick="delAddon('+i+')">Remove</button></div>'});
+  document.getElementById('al').innerHTML=h;
+}
+function addAddon(){
+  var u=document.getElementById('au').value.replace(/^\s+|\s+$/g,'');if(!u)return;
+  var l=addons();l.push(u);store('addons',l.join('\n'));say('Saved');listAddons();
+}
+function delAddon(i){var l=addons();l.splice(i,1);store('addons',l.join('\n'));listAddons()}
+
+loadHome();
+</script>
+</body>
+</html>
