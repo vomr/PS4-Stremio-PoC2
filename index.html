@@ -61,9 +61,25 @@ function grid(metas){
   main.innerHTML=h||'No results';
   window.metas=metas;
 }
+var QUICK=[['tt1254207','Big Buck Bunny'],['tt1727587','Sintel'],['tt2285752','Tears of Steel']];
+function quick(i){
+  var q=QUICK[i];
+  main.innerHTML='<h2>'+q[1]+'</h2><button onclick="findStreams(\''+q[0]+'\')">Find streams</button><button onclick="loadHome()">Back</button><div id="st"></div>';
+  findStreams(q[0]);
+}
 function loadHome(){
   say('Loading...');
-  get(CINE+'/catalog/movie/top.json',function(d){say('');grid(d.metas||[])},function(e){say('Error: '+e)});
+  get(CINE+'/catalog/movie/top.json',function(d){
+    say('');grid(d.metas||[]);
+    var h='<h3>Test titles (from your addon):</h3>';
+    for(var i=0;i<QUICK.length;i++)h+='<button onclick="quick('+i+')">'+QUICK[i][1]+'</button>';
+    main.innerHTML=h+'<hr>'+main.innerHTML;
+  },function(e){
+    say('Error: '+e);
+    var h='<h3>Test titles (from your addon):</h3>';
+    for(var i=0;i<QUICK.length;i++)h+='<button onclick="quick('+i+')">'+QUICK[i][1]+'</button>';
+    main.innerHTML=h;
+  });
 }
 function search(){
   var q=document.getElementById('q').value;if(!q)return;
