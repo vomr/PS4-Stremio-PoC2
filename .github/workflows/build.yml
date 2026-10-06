@@ -8,7 +8,14 @@ jobs:
       options: --user root
     steps:
       - name: Install git
-        run: apt-get update && apt-get install -y git
+        run: apt-get update && apt-get install -y git file
+      - name: Diagnose
+        run: |
+          echo "== bin/linux =="; ls -la /lib/OpenOrbisSDK/bin/linux || true
+          echo "== file =="; file /lib/OpenOrbisSDK/bin/linux/create-fself || true
+          echo "== ldd =="; ldd /lib/OpenOrbisSDK/bin/linux/create-fself || true
+          echo "== search =="; find / -name "create-fself*" 2>/dev/null || true
+          echo "== os =="; cat /etc/os-release | head -3
       - name: Build hello_world sample
         run: |
           git clone --depth 1 https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git /tmp/tc
